@@ -1,5 +1,5 @@
 {
-  "name": "unblockedgames",
+  "name": "unblockedgames.com",
   "description": "A high-performance portal for unblocked web games featuring an AI-driven game generator that allows users to create and play simple browser games on the fly using Gemini.",
   "requestFramePermissions": [
     "camera",
