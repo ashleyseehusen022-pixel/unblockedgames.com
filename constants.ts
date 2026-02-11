@@ -1,70 +1,99 @@
 
 import { Game } from './types';
 
-const NEBULA_RIVALS_CODE = `
+const GAME_CORE_SCRIPT = `
+    <script>
+        // Listen for portal settings
+        window.addEventListener('message', (event) => {
+            const data = event.data;
+            if (data.type === 'SETTING_CHANGE') {
+                if (data.key === 'neonIntensity') {
+                    document.body.style.filter = \`brightness(\${0.8 + data.value * 0.4}) saturate(\${1.2 + data.value * 0.8})\`;
+                }
+                window.gameSettings = window.gameSettings || {};
+                window.gameSettings[data.key] = data.value;
+            }
+        });
+    </script>
+`;
+
+const PHONK_STRIKE_CODE = `
 <!DOCTYPE html>
 <html>
 <head>
     <style>
-        body { margin: 0; background: #0a0a0c; color: #fff; font-family: sans-serif; overflow: hidden; }
-        canvas { display: block; cursor: crosshair; }
-        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; }
-        .bar { width: 200px; height: 10px; background: #333; border-radius: 5px; margin-bottom: 5px; }
-        .fill { height: 100%; border-radius: 5px; transition: width 0.2s; }
-        #hp { background: #ff4757; }
-        #enemy-hp { background: #2f3542; border: 1px solid #ff4757; }
-        #enemy-fill { background: #ff4757; }
-        .label { font-size: 12px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }
+        body { margin: 0; background: #010409; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
+        canvas { display: block; cursor: crosshair; width: 100vw; height: 100vh; }
+        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; font-weight: 900; font-style: italic; }
+        .bar { width: 150px; height: 12px; background: #111; border: 2px solid #222; margin-bottom: 5px; transform: skewX(-10deg); }
+        .fill { height: 100%; transition: width 0.2s; }
+        #hp { background: #22c55e; box-shadow: 0 0 15px #22c55e; }
+        #enemy-hp { background: #111; border: 1px solid #eab308; }
+        #enemy-fill { background: #eab308; box-shadow: 0 0 15px #eab308; }
+        .label { font-size: 10px; text-transform: uppercase; margin-bottom: 2px; color: #aaa; letter-spacing: 1px; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div class="label">You (WASD + Click)</div>
+        <div class="label">PLAYER</div>
         <div class="bar"><div id="hp" class="fill" style="width: 100%"></div></div>
-        <div class="label" style="margin-top: 15px">Rival (AI)</div>
+        <div class="label" style="margin-top: 10px">RIVAL</div>
         <div class="bar" id="enemy-hp"><div id="enemy-fill" class="fill" style="width: 100%"></div></div>
     </div>
     <canvas id="game"></canvas>
+    ${GAME_CORE_SCRIPT}
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
         const hpFill = document.getElementById('hp');
         const enemyFill = document.getElementById('enemy-fill');
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
 
-        const player = { x: 100, y: canvas.height/2, r: 20, color: '#7d5fff', hp: 100, speed: 5 };
-        const enemy = { x: canvas.width - 100, y: canvas.height/2, r: 20, color: '#ff4757', hp: 100, speed: 3 };
+        const player = { x: 50, y: canvas.height/2, r: 18, color: '#22c55e', hp: 100, speed: 6 };
+        const enemy = { x: canvas.width - 50, y: canvas.height/2, r: 18, color: '#eab308', hp: 100, speed: 4 };
         const bullets = [];
         const keys = {};
 
         window.onkeydown = e => keys[e.key.toLowerCase()] = true;
         window.onkeyup = e => keys[e.key.toLowerCase()] = false;
         
-        canvas.onmousedown = e => {
-            const angle = Math.atan2(e.clientY - player.y, e.clientX - player.x);
-            bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 15, vy: Math.sin(angle) * 15, owner: 'player' });
+        const shoot = (x, y) => {
+            const angle = Math.atan2(y - player.y, x - player.x);
+            bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle) * 14, vy: Math.sin(angle) * 14, owner: 'player' });
+        };
+
+        canvas.onmousedown = e => shoot(e.clientX, e.clientY);
+        canvas.ontouchstart = e => {
+            const touch = e.touches[0];
+            shoot(touch.clientX, touch.clientY);
+            e.preventDefault();
         };
 
         function update() {
-            if (keys['w'] && player.y > player.r) player.y -= player.speed;
-            if (keys['s'] && player.y < canvas.height - player.r) player.y += player.speed;
-            if (keys['a'] && player.x > player.r) player.x -= player.speed;
-            if (keys['d'] && player.x < canvas.width/2 - 50) player.x += player.speed;
+            const sens = (window.gameSettings?.sensitivity || 1);
+            const speed = player.speed * sens;
+            if (keys['w'] && player.y > player.r) player.y -= speed;
+            if (keys['s'] && player.y < canvas.height - player.r) player.y += speed;
+            if (keys['a'] && player.x > player.r) player.x -= speed;
+            if (keys['d'] && player.x < canvas.width/2 - 20) player.x += speed;
 
-            // Simple AI
             if (Math.abs(enemy.y - player.y) > 10) enemy.y += (player.y > enemy.y ? 1 : -1) * enemy.speed;
-            if (Math.random() < 0.02) {
+            if (Math.random() < 0.03) {
                 const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
                 bullets.push({ x: enemy.x, y: enemy.y, vx: Math.cos(angle) * 10, vy: Math.sin(angle) * 10, owner: 'enemy' });
             }
 
             bullets.forEach((b, i) => {
                 b.x += b.vx; b.y += b.vy;
-                if (b.owner === 'player' && Math.hypot(b.x - enemy.x, b.y - enemy.y) < enemy.r) {
+                if (b.owner === 'player' && Math.hypot(b.x - enemy.x, b.y - enemy.y) < enemy.r + 5) {
                     enemy.hp -= 5; bullets.splice(i, 1);
-                } else if (b.owner === 'enemy' && Math.hypot(b.x - player.x, b.y - player.y) < player.r) {
+                } else if (b.owner === 'enemy' && Math.hypot(b.x - player.x, b.y - player.y) < player.r + 5) {
                     player.hp -= 5; bullets.splice(i, 1);
                 }
                 if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
@@ -74,25 +103,32 @@ const NEBULA_RIVALS_CODE = `
             enemyFill.style.width = enemy.hp + '%';
 
             if (player.hp <= 0 || enemy.hp <= 0) {
-                alert(player.hp <= 0 ? "You Lost!" : "You Won!");
                 player.hp = 100; enemy.hp = 100;
             }
         }
 
         function draw() {
-            ctx.fillStyle = '#0a0a0c';
+            ctx.fillStyle = '#010409';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.strokeStyle = '#333';
-            ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke();
+            ctx.strokeStyle = '#052e16';
+            ctx.lineWidth = 2;
+            for(let i=0; i<canvas.width; i+=40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
 
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = player.color;
             ctx.fillStyle = player.color;
             ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
 
+            ctx.shadowColor = enemy.color;
             ctx.fillStyle = enemy.color;
             ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.r, 0, Math.PI*2); ctx.fill();
 
-            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#3b82f6';
+            ctx.fillStyle = '#3b82f6';
             bullets.forEach(b => {
                 ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
             });
@@ -105,26 +141,31 @@ const NEBULA_RIVALS_CODE = `
 </html>
 `;
 
-const STICKMAN_STRIKE_CODE = `
+const PHONK_WARRIOR_CODE = `
 <!DOCTYPE html>
 <html>
 <head>
     <style>
-        body { margin: 0; background: #111; overflow: hidden; font-family: sans-serif; color: #fff; }
-        canvas { display: block; }
-        #hint { position: absolute; top: 10px; width: 100%; text-align: center; pointer-events: none; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; color: #fff; touch-action: none; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #hint { position: absolute; top: 10px; width: 100%; text-align: center; pointer-events: none; font-size: 14px; font-weight: 900; color: #22c55e; text-transform: uppercase; italic; }
     </style>
 </head>
 <body>
-    <div id="hint">Drag your stickman (Blue) to hit the Red rival!</div>
+    <div id="hint">DRAG TO SMASH / DESTROY YOUR RIVAL</div>
     <canvas id="game"></canvas>
+    ${GAME_CORE_SCRIPT}
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
 
-        const gravity = 0.3;
+        const gravity = 0.35;
         const dragFactor = 0.98;
 
         class Stickman {
@@ -139,82 +180,159 @@ const STICKMAN_STRIKE_CODE = `
                     this.x += this.vx; this.y += this.vy;
                     this.vx *= dragFactor; this.vy *= dragFactor;
 
-                    if (this.y > canvas.height - this.r) {
-                        this.y = canvas.height - this.r;
-                        this.vy *= -0.5;
+                    if (this.y > canvas.height - 50) {
+                        this.y = canvas.height - 50;
+                        this.vy *= -0.3;
                     }
-                    if (this.x < this.r || this.x > canvas.width - this.r) {
-                        this.vx *= -1;
-                        this.x = this.x < this.r ? this.r : canvas.width - this.r;
+                    if (this.x < 30 || this.x > canvas.width - 30) {
+                        this.vx *= -0.7;
+                        this.x = this.x < 30 ? 30 : canvas.width - 30;
                     }
                 }
             }
             draw() {
-                ctx.strokeStyle = this.color; ctx.lineWidth = 5;
+                ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+                ctx.strokeStyle = this.color; ctx.lineWidth = 6;
                 ctx.beginPath(); ctx.arc(this.x, this.y - 40, 15, 0, Math.PI*2); ctx.stroke(); // Head
-                ctx.beginPath(); ctx.moveTo(this.x, this.y - 25); ctx.lineTo(this.x, this.y + 10); ctx.stroke(); // Body
-                ctx.beginPath(); ctx.moveTo(this.x, this.y - 15); ctx.lineTo(this.x - 20, this.y); ctx.stroke(); // Left Arm
-                ctx.beginPath(); ctx.moveTo(this.x, this.y - 15); ctx.lineTo(this.x + 20, this.y); ctx.stroke(); // Right Arm
-                ctx.beginPath(); ctx.moveTo(this.x, this.y + 10); ctx.lineTo(this.x - 15, this.y + 35); ctx.stroke(); // Left Leg
-                ctx.beginPath(); ctx.moveTo(this.x, this.y + 10); ctx.lineTo(this.x + 15, this.y + 35); ctx.stroke(); // Right Leg
+                ctx.beginPath(); ctx.moveTo(this.x, this.y - 25); ctx.lineTo(this.x, this.y + 15); ctx.stroke(); // Body
+                ctx.beginPath(); ctx.moveTo(this.x, this.y - 15); ctx.lineTo(this.x - 20, this.y + 5); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(this.x, this.y - 15); ctx.lineTo(this.x + 20, this.y + 5); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(this.x, this.y + 15); ctx.lineTo(this.x - 15, this.y + 40); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(this.x, this.y + 15); ctx.lineTo(this.x + 15, this.y + 40); ctx.stroke(); 
                 
-                // HP Bar
-                ctx.fillStyle = '#333'; ctx.fillRect(this.x - 20, this.y - 70, 40, 5);
-                ctx.fillStyle = this.hp > 30 ? '#4cd137' : '#e84118';
-                ctx.fillRect(this.x - 20, this.y - 70, (this.hp/100) * 40, 5);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#111'; ctx.fillRect(this.x - 20, this.y - 70, 40, 6);
+                ctx.fillStyle = this.color; ctx.fillRect(this.x - 20, this.y - 70, (this.hp/100) * 40, 6);
             }
         }
 
-        const player = new Stickman(200, 300, '#00a8ff', true);
-        const enemy = new Stickman(canvas.width - 200, 300, '#e84118', false);
-        let lastMouse = { x: 0, y: 0 };
+        const player = new Stickman(150, 300, '#22c55e', true);
+        const enemy = new Stickman(canvas.width - 150, 300, '#eab308', false);
 
-        canvas.onmousedown = e => {
-            if (Math.hypot(e.clientX - player.x, e.clientY - player.y) < 50) {
-                player.dragging = true;
-            }
+        const handleDown = (ex, ey) => {
+            if (Math.hypot(ex - player.x, ey - player.y) < 80) player.dragging = true;
         };
-        window.onmousemove = e => {
+        const handleMove = (ex, ey) => {
             if (player.dragging) {
-                player.vx = (e.clientX - player.x) * 0.2;
-                player.vy = (e.clientY - player.y) * 0.2;
-                player.x = e.clientX; player.y = e.clientY;
+                const sens = (window.gameSettings?.sensitivity || 1) * 0.3;
+                player.vx = (ex - player.x) * sens;
+                player.vy = (ey - player.y) * sens;
+                player.x = ex; player.y = ey;
             }
         };
-        window.onmouseup = () => player.dragging = false;
+
+        canvas.onmousedown = e => handleDown(e.clientX, e.clientY);
+        canvas.ontouchstart = e => { handleDown(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); };
+        window.onmousemove = e => handleMove(e.clientX, e.clientY);
+        window.ontouchmove = e => { handleMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); };
+        window.onmouseup = window.ontouchend = () => player.dragging = false;
 
         function loop() {
-            ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            player.update();
-            enemy.update();
-
-            // Simple Enemy AI behavior
-            if (Math.random() < 0.05) {
-                enemy.vx += (player.x > enemy.x ? 1 : -1) * 2;
-                enemy.vy -= 3;
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            player.update(); enemy.update();
+            if (Math.random() < 0.04) { enemy.vx += (player.x > enemy.x ? 1.5 : -1.5) * 4; enemy.vy -= 6; }
+            if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < 60) {
+                const f = Math.hypot(player.vx, player.vy);
+                if (f > 5) { enemy.hp -= f * 0.4; enemy.vx += player.vx * 1.2; enemy.vy += player.vy * 1.2; }
             }
+            player.draw(); enemy.draw();
+            if (enemy.hp <= 0 || player.hp <= 0) { player.hp = 100; enemy.hp = 100; }
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
+`;
 
-            // Collision check
-            const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
-            if (dist < 60) {
-                const force = Math.hypot(player.vx, player.vy);
-                if (force > 5) {
-                    enemy.hp -= force;
-                    enemy.vx += player.vx * 1.5;
-                    enemy.vy += player.vy * 1.5;
+const PHONK_DRIFT_HOOPS_CODE = `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { margin: 0; background: #020617; color: #fff; font-family: sans-serif; overflow: hidden; touch-action: none; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; }
+        #score { font-size: 40px; font-weight: 900; color: #eab308; font-style: italic; text-shadow: 0 0 15px rgba(234, 179, 8, 0.5); }
+    </style>
+</head>
+<body>
+    <div id="ui"><div id="score">0</div></div>
+    <canvas id="game"></canvas>
+    ${GAME_CORE_SCRIPT}
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
+
+        let score = 0;
+        const gravity = 0.45;
+        const ball = { x: 80, y: 0, vx: 0, vy: 0, r: 20, active: false, color: '#3b82f6' };
+        ball.y = canvas.height - 120;
+        
+        const hoop = { x: 0, y: 180, w: 70, h: 10, color: '#22c55e' };
+        hoop.x = canvas.width - 120;
+
+        let isAiming = false;
+        let aimStart = { x: 0, y: 0 }, currentMouse = { x: 0, y: 0 };
+
+        const handleStart = (ex, ey) => {
+            if (ball.active) return;
+            isAiming = true;
+            aimStart = { x: ex, y: ey };
+            currentMouse = { ...aimStart };
+        };
+        const handleMove = (ex, ey) => { if (isAiming) currentMouse = { x: ex, y: ey }; };
+        const handleEnd = () => {
+            if (!isAiming) return;
+            isAiming = false;
+            const sens = (window.gameSettings?.sensitivity || 1) * 0.15;
+            ball.vx = (aimStart.x - currentMouse.x) * sens;
+            ball.vy = (aimStart.y - currentMouse.y) * sens;
+            ball.active = true;
+        };
+
+        canvas.onmousedown = e => handleStart(e.clientX, e.clientY);
+        canvas.ontouchstart = e => { handleStart(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); };
+        window.onmousemove = e => handleMove(e.clientX, e.clientY);
+        window.ontouchmove = e => { handleMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); };
+        window.onmouseup = window.ontouchend = handleEnd;
+
+        function loop() {
+            ctx.fillStyle = '#020617'; ctx.fillRect(0,0, canvas.width, canvas.height);
+            
+            if (isAiming) {
+                ctx.beginPath(); ctx.strokeStyle = '#eab308'; ctx.setLineDash([8, 8]);
+                ctx.lineWidth = 3;
+                ctx.moveTo(ball.x, ball.y);
+                ctx.lineTo(ball.x + (aimStart.x - currentMouse.x)*0.5, ball.y + (aimStart.y - currentMouse.y)*0.5);
+                ctx.stroke(); ctx.setLineDash([]);
+            }
+            if (ball.active) {
+                ball.vy += gravity; ball.x += ball.vx; ball.y += ball.vy;
+                if (ball.y > canvas.height + 100 || ball.x < -100 || ball.x > canvas.width + 100) {
+                    ball.active = false; ball.x = 80; ball.y = canvas.height - 120;
+                }
+                if (ball.vy > 0 && ball.x > hoop.x && ball.x < hoop.x + hoop.w && Math.abs(ball.y - hoop.y) < 25) {
+                    score++; scoreEl.innerText = score;
+                    ball.active = false; ball.x = 80; ball.y = canvas.height - 120;
                 }
             }
-
-            player.draw();
-            enemy.draw();
-
-            if (enemy.hp <= 0 || player.hp <= 0) {
-                alert(enemy.hp <= 0 ? "Enemy Defeated!" : "Stickman Wasted!");
-                player.hp = 100; enemy.hp = 100;
-                player.x = 200; enemy.x = canvas.width - 200;
-            }
-
+            
+            ctx.shadowBlur = 20; ctx.shadowColor = hoop.color;
+            ctx.fillStyle = hoop.color; ctx.fillRect(hoop.x, hoop.y, hoop.w, hoop.h);
+            
+            ctx.shadowColor = ball.color;
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+            ctx.fillStyle = ball.color; ctx.fill();
+            ctx.shadowBlur = 0;
+            
             requestAnimationFrame(loop);
         }
         loop();
@@ -225,71 +343,48 @@ const STICKMAN_STRIKE_CODE = `
 
 export const MOCK_GAMES: Game[] = [
   {
-    id: 'nebula-rivals',
-    title: 'Nebula Rivals',
-    description: 'Competitive 1v1 arena shooter. Out-aim and out-maneuver your rival in high-speed combat.',
-    thumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=400&h=225',
+    id: 'phonk-strike',
+    title: 'PHONK STRIKE BR',
+    description: 'Fast-paced arena battle. Dominate the Brazilian territory with high-speed drift reflexes.',
+    thumbnail: 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=400&h=225',
     url: '',
     category: 'Action',
-    tags: ['shooter', '1v1', 'action'],
+    tags: ['brazil', 'drift', 'combat'],
     isInternal: true,
-    internalCode: NEBULA_RIVALS_CODE
+    internalCode: PHONK_STRIKE_CODE
   },
   {
-    id: 'stickman-strike',
-    title: 'Stickman Strike',
-    description: 'Physics-based stickman warrior combat. Swing, drag, and smash your way to victory!',
-    thumbnail: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&q=80&w=400&h=225',
+    id: 'phonk-warrior',
+    title: 'PHONK WARRIOR',
+    description: 'Aggressive physics combat. Use the asphalt\'s gravity to destroy your opponents.',
+    thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=400&h=225',
     url: '',
     category: 'Action',
-    tags: ['stickman', 'physics', 'warriors'],
+    tags: ['stickman', 'phonk', 'fight'],
     isInternal: true,
-    internalCode: STICKMAN_STRIKE_CODE
+    internalCode: PHONK_WARRIOR_CODE
   },
   {
-    id: '2048',
-    title: '2048 Classic',
-    description: 'Merge tiles to reach the 2048 tile in this addictive puzzle game.',
-    thumbnail: 'https://picsum.photos/seed/2048/400/225',
-    url: 'https://play2048.co/',
-    category: 'Puzzle',
-    tags: ['puzzle', 'math', 'classic']
-  },
-  {
-    id: 'hextris',
-    title: 'Hextris',
-    description: 'A fast-paced puzzle game where you rotate a hexagon to match blocks.',
-    thumbnail: 'https://picsum.photos/seed/hextris/400/225',
-    url: 'https://hextris.io/',
+    id: 'phonk-hoops',
+    title: 'PHONK HOOPS 2.0',
+    description: 'Street basketball in Brazilian style. Precise aim under the neon lights of Sao Paulo.',
+    thumbnail: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&q=80&w=400&h=225',
+    url: '',
     category: 'Arcade',
-    tags: ['arcade', 'blocks', 'colors']
+    tags: ['basketball', 'neon', 'skill'],
+    isInternal: true,
+    internalCode: PHONK_DRIFT_HOOPS_CODE
   },
   {
-    id: 'snake',
-    title: 'Snake Retro',
-    description: 'The ultimate Nokia classic. Eat apples, grow longer, don\'t crash.',
-    thumbnail: 'https://picsum.photos/seed/snake/400/225',
-    url: 'https://snake.googlemaps.com/',
+    id: 'legacy-proxy',
+    title: 'PROXY CLASSIC',
+    description: 'Legacy utility for unlimited access on restricted networks.',
+    thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc48?auto=format&fit=crop&q=80&w=400&h=225',
+    url: '',
     category: 'Classic',
-    tags: ['retro', 'classic', 'arcade']
-  },
-  {
-    id: 'tetris',
-    title: 'Block Fall',
-    description: 'Classic block stacking gameplay with modern visuals.',
-    thumbnail: 'https://picsum.photos/seed/tetris/400/225',
-    url: 'https://tetris.com/play-tetris',
-    category: 'Puzzle',
-    tags: ['puzzle', 'retro', 'logic']
-  },
-  {
-    id: 'tower',
-    title: 'Tower Master',
-    description: 'Stack blocks perfectly to build the highest tower in the sky.',
-    thumbnail: 'https://picsum.photos/seed/tower/400/225',
-    url: 'https://www.google.com/logos/2010/pacman10-i.html',
-    category: 'Arcade',
-    tags: ['stack', 'timing', 'arcade']
+    tags: ['system', 'tool'],
+    isInternal: true,
+    internalCode: '' 
   }
 ];
 

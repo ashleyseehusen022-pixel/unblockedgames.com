@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Navbar from './components/Navbar';
 import GameCard from './components/GameCard';
 import AIGameDev from './components/AIGameDev';
@@ -12,9 +12,19 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeGame, setActiveGame] = useState<Game | null>(null);
   const [internalUrl, setInternalUrl] = useState<string | null>(null);
+  
+  // Game Session States
+  const [isMobileMode, setIsMobileMode] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState({
+    neonIntensity: 0.6,
+    sensitivity: 1.2,
+    showScanlines: true
+  });
+
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    // Cleanup internal URL when active game changes
     return () => {
       if (internalUrl) {
         URL.revokeObjectURL(internalUrl);
@@ -22,6 +32,19 @@ const App: React.FC = () => {
       }
     };
   }, [activeGame]);
+
+  // Sync settings with iframe
+  useEffect(() => {
+    if (iframeRef.current?.contentWindow) {
+      Object.entries(settings).forEach(([key, value]) => {
+        iframeRef.current?.contentWindow?.postMessage({
+          type: 'SETTING_CHANGE',
+          key,
+          value
+        }, '*');
+      });
+    }
+  }, [settings, internalUrl, currentPage]);
 
   const filteredGames = useMemo(() => {
     return MOCK_GAMES.filter(game => {
@@ -43,40 +66,44 @@ const App: React.FC = () => {
     setCurrentPage(Page.Play);
   };
 
+  const updateSetting = (key: string, value: any) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+  };
+
   const renderPage = () => {
     switch (currentPage) {
       case Page.Home:
         return (
           <div className="space-y-16 animate-fadeIn">
-            <section className="relative h-[500px] flex items-center justify-center overflow-hidden rounded-3xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-900/40 to-indigo-900/40 z-0"></div>
+            <section className="relative h-[600px] flex items-center justify-center overflow-hidden rounded-sm border-2 border-green-500/20">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-950/80 to-blue-950/80 z-0"></div>
               <img 
-                src="https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80" 
-                className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50 z-[-1]" 
-                alt="Hero"
+                src="https://images.unsplash.com/photo-1621360841013-c7683c659ec6?auto=format&fit=crop&q=80" 
+                className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-40 z-[-1]" 
+                alt="Phonk Aesthetic"
               />
-              <div className="relative z-10 text-center px-4 max-w-3xl">
-                <span className="inline-block px-3 py-1 bg-violet-600/30 border border-violet-500/50 rounded-full text-violet-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-6 animate-bounce">
-                  New Action Clones Added
+              <div className="relative z-10 text-center px-4 max-w-4xl">
+                <span className="inline-block px-4 py-1 bg-yellow-400 text-black text-[10px] font-black italic uppercase tracking-[0.3em] mb-6 animate-pulse skew-x-[-15deg]">
+                  STAY PHONK
                 </span>
-                <h1 className="text-6xl md:text-8xl font-black text-white mb-6 tracking-tighter uppercase neon-text leading-tight">
-                  Play Without <br/> <span className="text-violet-500">Limits.</span>
+                <h1 className="text-7xl md:text-9xl font-black text-white mb-6 tracking-tighter uppercase phonk-text leading-[0.85] italic">
+                  PHONK <br/> <span className="text-green-500">PLAYS</span> <br/> <span className="text-yellow-400">BRB.</span>
                 </h1>
-                <p className="text-xl text-gray-300 mb-10 max-w-xl mx-auto leading-relaxed">
-                  The ultimate hub for unblocked games and AI-powered game development. Discover, play, and build in one place.
+                <p className="text-lg text-gray-300 mb-10 max-w-xl mx-auto font-bold italic leading-tight uppercase">
+                  The ultimate unblocked games portal with the soul of Brazilian Phonk. Pure performance, aggressive style.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <button 
                     onClick={() => setCurrentPage(Page.Library)}
-                    className="px-8 py-4 bg-white text-gray-900 font-bold rounded-xl hover:bg-violet-400 hover:text-white transition-all transform hover:-translate-y-1 shadow-xl shadow-white/10"
+                    className="px-10 py-5 bg-green-600 text-white font-black italic rounded-sm hover:bg-yellow-400 hover:text-black transition-all transform hover:scale-105 shadow-xl shadow-green-500/20 skew-x-[-10deg]"
                   >
-                    Explore Library
+                    ENTER ARENA
                   </button>
                   <button 
                     onClick={() => setCurrentPage(Page.AILab)}
-                    className="px-8 py-4 glass text-white font-bold rounded-xl hover:bg-white/10 transition-all transform hover:-translate-y-1 border border-white/20"
+                    className="px-10 py-5 glass text-white font-black italic rounded-sm hover:bg-white/10 transition-all transform hover:scale-105 border border-green-500/30 skew-x-[-10deg]"
                   >
-                    Build with AI
+                    AI WORKSHOP
                   </button>
                 </div>
               </div>
@@ -84,12 +111,12 @@ const App: React.FC = () => {
 
             <section>
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold uppercase tracking-widest text-white">Featured Hits</h2>
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-green-400">HEAVIEST HITS</h2>
                 <button 
                   onClick={() => setCurrentPage(Page.Library)}
-                  className="text-sm font-bold text-violet-400 hover:text-white transition-colors"
+                  className="text-xs font-black italic text-yellow-500 hover:text-white transition-colors tracking-widest"
                 >
-                  View All &rarr;
+                  VIEW ALL &rarr;
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -106,30 +133,29 @@ const App: React.FC = () => {
           <div className="animate-fadeIn">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
               <div>
-                <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">Game Library</h2>
-                <p className="text-gray-400">Discover hundreds of hand-picked, unblocked web games.</p>
+                <h2 className="text-4xl font-black italic text-white uppercase tracking-tighter mb-2">GAME LIBRARY</h2>
+                <p className="text-gray-400 font-bold italic uppercase text-xs">The most aggressive curation on the web.</p>
               </div>
               <div className="relative group">
-                <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-violet-400 transition-colors" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                 <input 
                   type="text"
-                  placeholder="Search games..."
+                  placeholder="SEARCH GAMES..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full md:w-80 bg-gray-900/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  className="w-full md:w-80 bg-green-950/20 border-2 border-green-500/20 rounded-sm py-4 px-6 text-white font-black italic focus:outline-none focus:border-yellow-500 transition-all placeholder:text-gray-700"
                 />
               </div>
             </div>
 
-            <div className="flex gap-4 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+            <div className="flex gap-4 mb-10 overflow-x-auto pb-4 scrollbar-hide">
               {CATEGORIES.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+                  className={`px-8 py-3 rounded-sm text-xs font-black italic uppercase tracking-widest transition-all whitespace-nowrap skew-x-[-12deg] ${
                     selectedCategory === cat 
-                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20' 
-                    : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
+                    ? 'bg-yellow-400 text-black shadow-lg shadow-yellow-500/30' 
+                    : 'bg-white/5 text-gray-500 hover:bg-green-600 hover:text-white'
                   }`}
                 >
                   {cat}
@@ -137,17 +163,11 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            {filteredGames.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {filteredGames.map(game => (
-                  <GameCard key={game.id} game={game} onPlay={handlePlay} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/5">
-                <p className="text-gray-500 text-lg">No games found matching your search.</p>
-              </div>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {filteredGames.map(game => (
+                <GameCard key={game.id} game={game} onPlay={handlePlay} />
+              ))}
+            </div>
           </div>
         );
 
@@ -157,59 +177,140 @@ const App: React.FC = () => {
       case Page.Play:
         if (!activeGame) return null;
         return (
-          <div className="animate-fadeIn max-w-6xl mx-auto">
-            <div className="mb-6 flex items-center justify-between">
+          <div className="animate-fadeIn max-w-6xl mx-auto flex flex-col items-center">
+            <div className="w-full mb-6 flex items-center justify-between">
               <button 
                 onClick={() => setCurrentPage(Page.Library)}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-green-400 hover:text-yellow-400 transition-colors text-xs font-black italic uppercase tracking-wider"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-                Back to Library
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                EXIT GAME
               </button>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                Playing: <span className="text-violet-400 font-bold">{activeGame.title}</span>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsMobileMode(!isMobileMode)}
+                  className={`flex items-center gap-2 px-6 py-2 rounded-sm border-2 text-[10px] font-black italic uppercase tracking-widest transition-all skew-x-[-10deg] ${
+                    isMobileMode 
+                    ? 'bg-blue-600 border-blue-400 text-white' 
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-green-600 hover:text-white'
+                  }`}
+                >
+                  {isMobileMode ? 'MOBILE VIEW' : 'DESKTOP VIEW'}
+                </button>
+                <button 
+                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  className={`p-2 rounded-sm border-2 transition-all ${
+                    isSettingsOpen 
+                    ? 'bg-yellow-500 border-yellow-400 text-black' 
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-green-600'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
               </div>
             </div>
             
-            <div className="glass rounded-3xl overflow-hidden border-white/5 aspect-video bg-black relative shadow-2xl shadow-violet-500/10">
+            <div className={`relative transition-all duration-500 ease-out ${
+              isMobileMode 
+              ? 'w-[375px] h-[667px] border-[16px] border-gray-950 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-green-500/20 scale-90 sm:scale-100' 
+              : 'w-full aspect-video glass rounded-sm border-2 border-green-500/20 shadow-2xl'
+            }`}>
+              {settings.showScanlines && (
+                <div className="absolute inset-0 pointer-events-none opacity-20 mix-blend-overlay z-10" 
+                     style={{backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%), linear-gradient(90deg, rgba(34, 197, 94, 0.1), rgba(234, 179, 8, 0.05), rgba(59, 130, 246, 0.1))', backgroundSize: '100% 4px, 6px 100%'}}></div>
+              )}
+              
               <iframe 
+                ref={iframeRef}
                 src={internalUrl || activeGame.url} 
                 className="w-full h-full border-none"
                 title={activeGame.title}
                 allow="fullscreen; autoplay; gamepad"
               />
+
+              {isSettingsOpen && (
+                <div className="absolute top-4 right-4 z-50 glass p-8 rounded-sm border-2 border-yellow-500/40 w-72 animate-slideInRight shadow-2xl">
+                  <h3 className="text-sm font-black text-yellow-400 italic uppercase tracking-widest mb-6 border-b-2 border-white/10 pb-2">CONTROL PANEL</h3>
+                  
+                  <div className="space-y-8">
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase italic block mb-3">NEON INTENSITY</label>
+                      <input 
+                        type="range" 
+                        min="0" max="1" step="0.1" 
+                        value={settings.neonIntensity}
+                        onChange={(e) => updateSetting('neonIntensity', parseFloat(e.target.value))}
+                        className="w-full accent-green-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase italic block mb-3">DRIFT SENSITIVITY</label>
+                      <input 
+                        type="range" 
+                        min="0.5" max="2" step="0.1" 
+                        value={settings.sensitivity}
+                        onChange={(e) => updateSetting('sensitivity', parseFloat(e.target.value))}
+                        className="w-full accent-yellow-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-gray-400 uppercase italic">RETRO SCANLINES</span>
+                      <button 
+                        onClick={() => updateSetting('showScanlines', !settings.showScanlines)}
+                        className={`w-12 h-6 rounded-sm transition-colors relative ${settings.showScanlines ? 'bg-green-600' : 'bg-gray-800'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-sm transition-all ${settings.showScanlines ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="w-full mt-10 py-3 bg-white/5 hover:bg-green-600 text-white text-[10px] font-black italic uppercase rounded-sm border-2 border-white/5 transition-colors skew-x-[-10deg]"
+                  >
+                    CONFIRM
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="mt-8 flex flex-col md:flex-row gap-8">
+            <div className="mt-10 w-full flex flex-col md:flex-row gap-12">
               <div className="flex-1">
-                <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-4">{activeGame.title}</h1>
-                <div className="flex gap-2 mb-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <h1 className="text-5xl font-black text-white italic uppercase tracking-tighter phonk-text">{activeGame.title}</h1>
+                  <span className="bg-green-600 text-white text-[10px] font-black italic px-4 py-1 rounded-sm uppercase skew-x-[-15deg]">BR EDITION</span>
+                </div>
+                <div className="flex gap-3 mb-8">
                   {activeGame.tags.map(tag => (
-                    <span key={tag} className="text-xs font-bold text-violet-400 bg-violet-400/10 px-3 py-1 rounded-full border border-violet-400/20">
+                    <span key={tag} className="text-[10px] font-black text-green-500 uppercase italic tracking-widest bg-green-950/40 px-3 py-1 border border-green-500/20">
                       #{tag}
                     </span>
                   ))}
                 </div>
-                <p className="text-gray-400 text-lg leading-relaxed">
+                <p className="text-gray-400 text-xl font-bold italic leading-tight max-w-2xl uppercase">
                   {activeGame.description}
                 </p>
               </div>
-              <div className="w-full md:w-80 glass p-6 rounded-2xl border-white/5 h-fit">
-                <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400"><path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 0C1.46 6.7 1.33 10.28 4 13l8 8 8-8c2.67-2.72 2.54-6.3.42-8.42z"/></svg>
-                  Related Games
+              <div className="w-full md:w-80 glass p-8 rounded-sm border-2 border-green-500/10 h-fit">
+                <h3 className="text-sm font-black text-yellow-500 italic uppercase tracking-widest mb-6 border-b-2 border-white/5 pb-2">
+                  NEXT CHALLENGES
                 </h3>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {MOCK_GAMES.filter(g => g.id !== activeGame.id).slice(0, 3).map(g => (
                     <div 
                       key={g.id} 
                       className="flex items-center gap-4 cursor-pointer group"
                       onClick={() => handlePlay(g)}
                     >
-                      <img src={g.thumbnail} className="w-16 h-12 object-cover rounded-lg group-hover:scale-105 transition-transform" alt={g.title} />
+                      <div className="w-20 h-14 overflow-hidden rounded-sm border border-white/10">
+                        <img src={g.thumbnail} className="w-full h-full object-cover group-hover:scale-125 transition-transform" alt={g.title} />
+                      </div>
                       <div className="flex-1 overflow-hidden">
-                        <h4 className="text-sm font-bold text-gray-300 truncate group-hover:text-violet-400 transition-colors">{g.title}</h4>
-                        <p className="text-[10px] text-gray-500 uppercase">{g.category}</p>
+                        <h4 className="text-xs font-black text-gray-300 italic truncate group-hover:text-green-400 transition-colors uppercase">{g.title}</h4>
+                        <p className="text-[9px] text-gray-500 font-black italic uppercase">{g.category}</p>
                       </div>
                     </div>
                   ))}
@@ -225,51 +326,50 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 selection:bg-violet-500/30">
-      <Navbar currentPage={currentPage} onPageChange={(p) => setCurrentPage(p)} />
+    <div className="min-h-screen bg-gray-950 selection:bg-green-500/40">
+      <Navbar currentPage={currentPage} onPageChange={(p) => {
+        setIsSettingsOpen(false);
+        setCurrentPage(p);
+      }} />
       
-      <main className="max-w-7xl mx-auto px-6 pt-28 pb-20">
+      <main className="max-w-7xl mx-auto px-6 pt-32 pb-24">
         {renderPage()}
       </main>
 
-      <footer className="glass border-t border-white/5 py-12 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+      <footer className="glass border-t-2 border-green-500/20 py-16 px-8">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-16">
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-violet-600 rounded flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 bg-green-600 rounded-sm flex items-center justify-center skew-x-[-12deg]">
+                <span className="text-yellow-400 font-black italic">BRB</span>
               </div>
-              <span className="text-lg font-black uppercase tracking-tighter text-white">Nebula Games</span>
+              <span className="text-2xl font-black italic uppercase tracking-tighter text-white">PHONKPLAYSGAMESBRB</span>
             </div>
-            <p className="text-gray-500 text-sm max-w-sm">
-              The premium unblocked gaming experience. High performance, zero lag, and AI-powered innovation. Built for gamers, by gamers.
+            <p className="text-gray-500 font-black italic uppercase text-xs leading-relaxed max-w-sm">
+              The premium unblocked games portal. Aggressive design, extreme performance, zero restrictions.
             </p>
           </div>
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-[0.2em] mb-6">Navigation</h4>
-            <ul className="space-y-4 text-sm text-gray-500">
-              <li><button onClick={() => setCurrentPage(Page.Home)} className="hover:text-violet-400 transition-colors">Home</button></li>
-              <li><button onClick={() => setCurrentPage(Page.Library)} className="hover:text-violet-400 transition-colors">Library</button></li>
-              <li><button onClick={() => setCurrentPage(Page.AILab)} className="hover:text-violet-400 transition-colors">AI Lab</button></li>
+            <h4 className="text-[10px] font-black text-yellow-500 italic uppercase tracking-[0.3em] mb-8">NAVIGATION</h4>
+            <ul className="space-y-4 text-xs font-black italic text-gray-500 uppercase">
+              <li><button onClick={() => setCurrentPage(Page.Home)} className="hover:text-green-400 transition-colors">HOME</button></li>
+              <li><button onClick={() => setCurrentPage(Page.Library)} className="hover:text-green-400 transition-colors">LIBRARY</button></li>
+              <li><button onClick={() => setCurrentPage(Page.AILab)} className="hover:text-green-400 transition-colors">AI LAB</button></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-[0.2em] mb-6">Connect</h4>
-            <ul className="space-y-4 text-sm text-gray-500">
-              <li className="hover:text-violet-400 transition-colors cursor-pointer">Discord Community</li>
-              <li className="hover:text-violet-400 transition-colors cursor-pointer">Twitter / X</li>
-              <li className="hover:text-violet-400 transition-colors cursor-pointer">GitHub Dev</li>
+            <h4 className="text-[10px] font-black text-yellow-500 italic uppercase tracking-[0.3em] mb-8">CONNECTION</h4>
+            <ul className="space-y-4 text-xs font-black italic text-gray-500 uppercase">
+              <li className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> BRAZIL SERVER</li>
+              <li>ZERO LATENCY</li>
+              <li>UNBLOCKED 24/7</li>
             </ul>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto mt-12 pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-gray-600 text-[10px] uppercase tracking-widest font-bold">
-            © 2024 Nebula Interactive. All rights reserved.
+        <div className="max-w-7xl mx-auto mt-16 pt-16 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+          <p className="text-gray-600 text-[10px] font-black italic uppercase tracking-widest">
+            © 2024 PHONKPLAYSGAMESBRB INTERACTIVE. MADE IN BRAZIL.
           </p>
-          <div className="flex gap-8 text-[10px] uppercase tracking-widest font-bold text-gray-600">
-            <span className="cursor-pointer hover:text-white">Privacy Policy</span>
-            <span className="cursor-pointer hover:text-white">Terms of Service</span>
-          </div>
         </div>
       </footer>
     </div>
